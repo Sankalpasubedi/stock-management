@@ -22,9 +22,7 @@ class SearchController extends Controller
             ->with(['unit' => fn($q) => $q->select(['id', 'name'])])
             ->paginate(6);
 
-        if ($products) {
-            return view('pages.products', compact('products'));
-        }
+        return view('pages.products', compact('products'));
     }
 
     public function searchCategory(Request $request)
@@ -32,10 +30,8 @@ class SearchController extends Controller
         $categoryName = $request->searchCategory;
         $categories = Category::where('name', 'like', '%' . $categoryName . '%')->paginate(6);
 
-        if ($categories) {
-            return view('pages.categories', compact('categories'));
+        return view('pages.categories', compact('categories'));
 
-        }
     }
 
     public function searchUnit(Request $request)
@@ -43,9 +39,7 @@ class SearchController extends Controller
         $unitName = $request->searchUnit;
         $units = Unit::where('name', 'like', '%' . $unitName . '%')->paginate(6);
 
-        if ($units) {
-            return view('pages.units', compact('units'));
-        }
+        return view('pages.units', compact('units'));
     }
 
     public function searchBrand(Request $request)
@@ -53,9 +47,7 @@ class SearchController extends Controller
         $brandName = $request->searchBrand;
         $brands = Brand::where('name', 'like', '%' . $brandName . '%')->paginate(6);
 
-        if ($brands) {
-            return view('pages.brand', compact('brands'));
-        }
+        return view('pages.brand', compact('brands'));
     }
 
     public function searchVendor(Request $request)
@@ -63,9 +55,7 @@ class SearchController extends Controller
         $vendorName = $request->searchVendor;
         $vendors = Vendor::where('name', 'like', '%' . $vendorName . '%')->paginate(6);
 
-        if ($vendors) {
-            return view('pages.vendors', compact('vendors'));
-        }
+        return view('pages.vendors', compact('vendors'));
     }
 
     public function searchCustomer(Request $request)
@@ -73,9 +63,7 @@ class SearchController extends Controller
         $customerName = $request->searchCustomer;
         $customers = Customer::where('name', 'like', '%' . $customerName . '%')->paginate(6);
 
-        if ($customers) {
-            return view('pages.customer', compact('customers'));
-        }
+        return view('pages.customer', compact('customers'));
     }
 
     public function searchReturn(Request $request)
@@ -94,9 +82,7 @@ class SearchController extends Controller
             })
             ->paginate(10);
 
-        if ($returns) {
-            return view('pages.returned', compact('returns'));
-        }
+        return view('pages.returned', compact('returns'));
     }
 
     public function searchBill(Request $request)

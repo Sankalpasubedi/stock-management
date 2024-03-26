@@ -21,19 +21,18 @@ class CustomerController extends Controller
     {
         return view('pages.Customer.addCustomer');
     }
+
     /**
      * Show the form for creating a new resource.
      */
     public function create(CustomerStoreRequest $request)
     {
-        $add = Customer::create([
-            'name' =>$request->name,
-            'address' =>$request->address,
-            'phone_no' =>$request->phone_no,
+        Customer::create([
+            'name' => $request->name,
+            'address' => $request->address,
+            'phone_no' => $request->phone_no,
         ]);
-        if($add){
-            return redirect(route('customer'));
-        }
+        return redirect(route('customer'));
     }
 
     /**
@@ -65,28 +64,27 @@ class CustomerController extends Controller
      */
     public function updateCustomer($id)
     {
-        $customer = Customer::where('id',$id)->first();
-        return view('pages.Customer.updateCustomer',compact('customer'));
+        $customer = Customer::where('id', $id)->first();
+        return view('pages.Customer.updateCustomer', compact('customer'));
     }
-    public function update(CustomerUpdateRequest $request,$id)
+
+    public function update(CustomerUpdateRequest $request, $id)
     {
 
-        $update = Customer::where('id',$id)->update([
+        Customer::where('id', $id)->update([
             'name' => $request->name,
-            'address' =>$request->address,
-            'phone_no' =>$request->phone_no,
+            'address' => $request->address,
+            'phone_no' => $request->phone_no,
         ]);
-        if($update){
-            return redirect(route('customer'));
-        }
+        return redirect(route('customer'));
     }
+
     public function delete($id)
     {
-        $delete = Customer::where('id',$id)->delete();
-        if($delete){
-            return redirect(route('customer'));
-        }
+        Customer::where('id', $id)->delete();
+        return redirect(route('customer'));
     }
+
     /**
      * Remove the specified resource from storage.
      */

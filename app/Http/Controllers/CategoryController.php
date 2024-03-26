@@ -22,12 +22,10 @@ class CategoryController extends Controller
      */
     public function create(CategoryStoreRequest $request)
     {
-        $add = Category::create([
-            'name' =>$request->name
+        Category::create([
+            'name' => $request->name
         ]);
-        if($add){
-            return redirect(route('category'));
-        }
+        return redirect(route('category'));
     }
 
     /**
@@ -56,21 +54,20 @@ class CategoryController extends Controller
 
     public function updateCategory($id)
     {
-        $category = Category::where('id',$id)->first();
-        return view('pages.Category.updateCategory',compact('category'));
+        $category = Category::where('id', $id)->first();
+        return view('pages.Category.updateCategory', compact('category'));
     }
+
     /**
      * Update the specified resource in storage.
      */
-    public function update(CategoryUpdateRequest $request,$id)
+    public function update(CategoryUpdateRequest $request, $id)
     {
 
-        $update = Category::where('id',$id)->update([
+        Category::where('id', $id)->update([
             'name' => $request->name
         ]);
-        if($update){
-            return redirect(route('category'));
-        }
+        return redirect(route('category'));
     }
 
     /**
@@ -78,11 +75,10 @@ class CategoryController extends Controller
      */
     public function delete($id)
     {
-                $delete = Category::where('id',$id)->delete();
-                if($delete){
-                    return redirect(route('category'));
-                }
+        Category::where('id', $id)->delete();
+        return redirect(route('category'));
     }
+
     public function destroy(Category $categories)
     {
         //

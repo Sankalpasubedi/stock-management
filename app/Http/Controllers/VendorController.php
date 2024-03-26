@@ -19,19 +19,18 @@ class VendorController extends Controller
     {
         return view('pages.Vendor.addVendor');
     }
+
     /**
      * Show the form for creating a new resource.
      */
     public function create(VendorStoreRequest $request)
     {
-        $add = Vendor::create([
-            'name' =>$request->name,
-            'address' =>$request->address,
-            'phone_no' =>$request->phone_no,
+        Vendor::create([
+            'name' => $request->name,
+            'address' => $request->address,
+            'phone_no' => $request->phone_no,
         ]);
-        if($add){
-            return redirect(route('vendor'));
-        }
+        return redirect(route('vendor'));
     }
 
     /**
@@ -63,28 +62,27 @@ class VendorController extends Controller
      */
     public function updateVendor($id)
     {
-        $vendor = Vendor::where('id',$id)->first();
-        return view('pages.Vendor.updateVendor',compact('vendor'));
+        $vendor = Vendor::where('id', $id)->first();
+        return view('pages.Vendor.updateVendor', compact('vendor'));
     }
-    public function update(VendorUpdateRequest $request,$id)
+
+    public function update(VendorUpdateRequest $request, $id)
     {
 
-        $update = Vendor::where('id',$id)->update([
+        Vendor::where('id', $id)->update([
             'name' => $request->name,
-            'address' =>$request->address,
-            'phone_no' =>$request->phone_no,
+            'address' => $request->address,
+            'phone_no' => $request->phone_no,
         ]);
-        if($update){
-            return redirect(route('vendor'));
-        }
+        return redirect(route('vendor'));
     }
+
     public function delete($id)
     {
-        $delete = Vendor::where('id',$id)->delete();
-        if($delete){
-            return redirect(route('vendor'));
-        }
+        Vendor::where('id', $id)->delete();
+        return redirect(route('vendor'));
     }
+
     /**
      * Remove the specified resource from storage.
      */

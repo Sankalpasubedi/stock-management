@@ -18,14 +18,12 @@ class ReturnedProductController extends Controller
 
     public function paidReturn($id)
     {
-        $paidBill = ReturnedProduct::where('id', $id)->update([
+        ReturnedProduct::where('id', $id)->update([
             'payable' => null,
             'receivable' => null,
             'bill_end_date' => null
         ]);
-        if ($paidBill) {
-            return redirect(route('return'));
-        }
+        return redirect(route('return'));
     }
 
     /**
@@ -70,10 +68,8 @@ class ReturnedProductController extends Controller
 
     public function deleteReturned($id)
     {
-        $delete = ReturnedProduct::where('id', $id)->orWhere('bill_under', $id)->delete();
-        if ($delete) {
-            return redirect(route('return'));
-        }
+        ReturnedProduct::where('id', $id)->orWhere('bill_under', $id)->delete();
+        return redirect(route('return'));
     }
 
     /**
