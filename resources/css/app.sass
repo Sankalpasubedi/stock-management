@@ -1,0 +1,92 @@
+@import '../../node_modules/bootstrap/scss/_functions'
+@import '../../node_modules/bootstrap/scss/_variables'
+$custom-theme-colors: ("greenn": #2e9926, "red": red, "heading": #c4dff9, "addItem": #0d83d2, "background": #f0f0f0)
+$theme-colors: map-merge($custom-theme-colors, $theme-colors)
+@import '../../node_modules/bootstrap/scss/bootstrap'
+
+body
+    background-color: white
+
+a
+    text-decoration: none
+
+.paid
+    border: none
+    color: red
+    padding: 5rem
+
+.error
+    color: red
+    margin: 0.1rem
+
+.error::after
+    content: '*'
+    display: inline-block
+
+.delete
+    text-decoration: none
+    border: none
+    background-color: #ededed
+    color: red
+
+.bg-heading
+    border-radius: 0.5rem
+    padding: 0.5rem
+    font-size: 1.2rem
+
+.item
+    border: solid #0d83d2 0.2rem
+    color: #0d83d2
+    margin: 1rem
+    border-radius: 0.5rem
+    transition: 0.2s
+
+    &:hover
+        background-color: #0d83d2
+        color: white
+
+        a
+            color: white
+
+.box
+    background-color: #ededed
+    margin: 1rem
+    padding: 1rem
+    box-shadow: 0 1px 4px black
+
+.itemBill
+    margin: 0rem !important
+
+.bHover
+    cursor: pointer
+
+.preview
+    border: solid #0d83d2 0.2rem
+    color: #0d83d2
+    border-radius: 0.5rem
+    transition: 0.2s
+
+    &:hover
+        background-color: #0d83d2
+        color: white
+
+        a
+            color: white
+
+
+.billStructure
+    background-color: #ededed
+    box-shadow: 0 1px 4px black
+
+.back
+    border: 0.1rem solid #0d83d2
+    color: white
+    background-color: #0d83d2
+    padding: 0.3rem
+    padding-inline: 1rem
+    margin: 0.5rem
+    cursor: pointer
+
+    &:hover
+        color: #0d83d2
+        background-color: white
