@@ -57,4 +57,9 @@
             </form>
         </div>
     </div>
+    <div class="error m-3">
+        @foreach($errors->all() as $error)
+            {{$error}}
+        @endforeach
+    </div>
 @endsection

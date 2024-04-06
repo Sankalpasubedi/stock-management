@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Bill;
 use App\Models\ReturnedProduct;
+use App\Services\ReturnedService;
 use Illuminate\Http\Request;
 
 class ReturnedProductController extends Controller
@@ -16,14 +17,18 @@ class ReturnedProductController extends Controller
         //
     }
 
-    public function paidReturn($id)
+    public function paidReturn(ReturnedService $returnedService, $id)
     {
-        ReturnedProduct::where('id', $id)->update([
-            'payable' => null,
-            'receivable' => null,
-            'bill_end_date' => null
-        ]);
+        $returnedService->creditAmountPaid($id);
         return redirect(route('return'));
+    }
+
+    public function searchReturn(ReturnedService $returnedService, Request $request)
+    {
+        $returns = $returnedService->searchContent($request);
+
+
+        return view('pages.returned', compact('returns'));
     }
 
     /**
@@ -66,9 +71,9 @@ class ReturnedProductController extends Controller
         //
     }
 
-    public function deleteReturned($id)
+    public function deleteReturned(ReturnedService $returnedService, $id)
     {
-        ReturnedProduct::where('id', $id)->orWhere('bill_under', $id)->delete();
+        $returnedService->deleteReturnedProducts($id);
         return redirect(route('return'));
     }
 

@@ -6,6 +6,7 @@ use App\Http\Requests\UnitStoreRequest;
 use App\Http\Requests\UnitUpdateRequest;
 use App\Models\Category;
 use App\Models\Unit;
+use App\Services\UnitService;
 use Illuminate\Http\Request;
 
 class UnitController extends Controller
@@ -21,11 +22,10 @@ class UnitController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create(UnitStoreRequest $request)
+    public function create(UnitService $unitService, UnitStoreRequest $request)
     {
-        Unit::create([
-            'name' => $request->name
-        ]);
+
+        $unitService->create($request);
         return redirect(route('unit'));
     }
 
@@ -53,30 +53,33 @@ class UnitController extends Controller
         //
     }
 
-    public function updateUnit($id)
+    public function updateUnit(UnitService $unitService, $id)
     {
-        $unit = Unit::where('id', $id)->first();
+        $unit = $unitService->getUnitById($id);
         return view('pages.Unit.updateUnit', compact('unit'));
+    }
+
+    public function searchUnit(UnitService $unitService, Request $request)
+    {
+        $units = $unitService->searchContent($request);
+        return view('pages.units', compact('units'));
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(UnitUpdateRequest $request, $id)
+    public function update(UnitService $unitService, UnitUpdateRequest $request, $id)
     {
-
-        Unit::where('id', $id)->update([
-            'name' => $request->name
-        ]);
+        $unitService->update($request, $id);
         return redirect(route('unit'));
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function delete($id)
+    public function delete(UnitService $unitService, $id)
     {
-        Unit::where('id', $id)->delete();
+        $unitService->delete($id);
         return redirect(route('unit'));
     }
 

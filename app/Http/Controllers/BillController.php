@@ -11,6 +11,11 @@ use App\Models\Customer;
 use App\Models\Product;
 use App\Models\ReturnedProduct;
 use App\Models\Vendor;
+use App\Services\BillService;
+use App\Services\CustomerService;
+use App\Services\ProductService;
+use App\Services\ReturnedService;
+use App\Services\VendorService;
 use Illuminate\Http\Request;
 
 class BillController extends Controller
@@ -18,422 +23,251 @@ class BillController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function addPurchase()
+    public function addPurchase(VendorService  $vendorService,
+                                ProductService $productService)
     {
-        $vendors = Vendor::get();
-        $products = Product::get();
+        $vendors = $vendorService->getAll();
+        $products = $productService->getAll();
         return view('pages.Bills.addPurchase', compact('vendors', 'products'));
     }
 
-    public function paidBill($id)
+
+    public function searchBill(BillService $billService, Request $request)
     {
-        Bill::where('id', $id)->update([
-            'payable' => null,
-            'receivable' => null,
-            'bill_end_date' => null
-        ]);
+
+        $bills = $billService->searchContent($request);
+
+        return view('pages.bill', compact('bills'));
+
+    }
+
+    public function paidBill(BillService $billService, $id)
+    {
+        $billService->creditAmountPaid($id);
         return redirect(route('bill'));
     }
 
-    public function saveBillPurchase(Request $request, $id)
+    public function saveBillPurchase(BillService   $billService,
+                                     VendorService $vendorService,
+                                     Request       $request,
+                                                   $id)
     {
-        $vendor = Vendor::where('id', $request->vendor)->first();
-        $bill = Bill::where('id', $id)->update([
-            'billable_id' => $vendor->id,
-            'payable' => $request->payable ?? null,
-            'bill_no' => $request->billNum,
-            'bill_end_date' => $request->date ?? null,
-        ]);
+        $vendor = $vendorService->getVendorById($request->vendor);
+        $billService->updatePurchaseBill($id, $request, $vendor);
+        return redirect(route('bill'))->with('success', 'Bill updated successfully.');
 
-        if ($bill) {
-            return redirect(route('bill'))->with('success', 'Bill updated successfully.');
-        } else {
-            return back()->with('error', 'Failed to update bill.');
-        }
     }
 
-    public function saveBillSales(Request $request, $id)
+    public function saveBillSales(BillService     $billService,
+                                  CustomerService $customerService,
+                                  Request         $request, $id)
     {
-        $customer = Customer::where('id', $request->customer)->first();
-        $bill = Bill::where('id', $id)->update([
-            'billable_id' => $customer->id,
-            'receivable' => $request->receivable ?? null,
-            'bill_no' => $request->billNum,
-            'bill_end_date' => $request->date ?? null,
-        ]);
+        $customer = $customerService->getCustomerById($request->customer);
+        $billService->updateSalesBill($id, $request, $customer);;
+        return redirect(route('bill'))->with('success', 'Bill updated successfully.');
 
-        if ($bill) {
-            return redirect(route('bill'))->with('success', 'Bill updated successfully.');
-        } else {
-            return back()->with('error', 'Failed to update bill.');
-        }
     }
 
-    public function previewBill($id)
+    public function previewBill(BillService $billService, $id)
     {
-        $mainBill = Bill::where('id', $id)->first();
-        $subProducts = Bill::where('bill_under', $id)->get();
-        $total = 0;
-        foreach ($subProducts as $subProduct) {
-            $total += $subProduct->total_product_amount;
-        }
-        if ($mainBill->discount_percentage > 0) {
-            $discountAmt = $total * ($mainBill->discount_percentage / 100);
-        } elseif ($mainBill->discount_amount > 0) {
-            $discountAmt = $mainBill->discount_amount;
-        } else {
-            $discountAmt = 0;
-        }
-        if ($mainBill->vat === 1) {
-            $discountTotal = $total - $discountAmt;
-            $vatAmt = $discountTotal * (13 / 100);
-        } else {
-            $vatAmt = 0;
-        }
-        $taxableAmount = $total - $discountAmt;
+
+        $mainBill = $billService->getBillById($id);
+        $billCalculations = $billService->getBillAmounts($id, $mainBill);
+        list($total, $taxableAmount, $subProducts, $discountAmt, $vatAmt) = $billCalculations;
         return view('pages.Bills.previewBill', compact('mainBill', 'total', 'taxableAmount', 'subProducts', 'discountAmt', 'vatAmt'));
     }
 
-    public function returnProduct($id)
+    public function returnProduct(BillService     $billService,
+                                  ProductService  $productService,
+                                  VendorService   $vendorService,
+                                  CustomerService $customerService,
+                                  ReturnedService $returnedService,
+                                                  $id)
     {
-        $bill = Bill::where('id', $id)->first();
-        $billUnders = Bill::where('bill_under', $bill->id)->get();
+        $bill = $billService->getBillById($id);
+        $billUnders = $billService->getSubBillById($id);
+
+//        Remaining
         foreach ($billUnders as $billUnder) {
             $product = Product::where('id', $billUnder->product_id)->first();
             if ($product->current_stock - $billUnder->stock < 0) {
                 return redirect()->back()->withErrors(['error' => 'Stock is less than what we need to return', $product->name]);
             }
         }
-        if ($bill->billable_type === 'vendor') {
-
-
-            $vendorMain = Vendor::where('id', $bill->billable_id)->first();
-            $vendorMain->return()->create([
-                'payable' => $bill->payable ?? null,
-                'total_bill_amount' => $bill->total_bill_amount,
-                'bill_no' => $bill->bill_no,
-                'bill_under' => null,
-                'bill_end_date' => $bill->bill_end_date ?? null,
-            ]);
-
-            if ($vendorMain) {
-                $returnVendorId = ReturnedProduct::where('bill_no', $bill->bill_no)->first()->id;
-                $subProducts = Bill::where('bill_under', $id)->get();
-                foreach ($subProducts as $subProduct) {
-                    Product::where('id', $subProduct->product_id)->decrement('current_stock', $subProduct->stock);
-                    $vendor = Vendor::where('id', $bill->billable_id)->first();
-                    $vendor->return()->create([
-                        'total_product_amount' => $subProduct->total_product_amount ?? null,
-                        'bill_no' => $subProduct->bill_no ?? null,
-                        'rate' => $subProduct->rate ?? null,
-                        'stock' => $subProduct->stock ?? null,
-                        'bill_under' => $returnVendorId,
-                        'product_id' => $subProduct->product_id ?? null,
-                    ]);
-
-                }
-                Bill::where('bill_under', $id)->delete();
-                $bill->delete();
-                return redirect(route('bill'));
-            }
-
-
-        } elseif ($bill->billable_type === 'customer') {
-
-
-            $customerMain = Customer::where('id', $bill->billable_id)->first();
-            $customerMain->return()->create([
-                'receivable' => $bill->receivable ?? null,
-                'total_bill_amount' => $bill->total_bill_amount,
-                'bill_no' => $bill->bill_no,
-                'bill_under' => null,
-                'bill_end_date' => $bill->bill_end_date ?? null,
-            ]);
-
-            if ($customerMain) {
-                $returnId = ReturnedProduct::where('bill_no', $bill->bill_no)->first()->id;
-                $subProducts = Bill::where('bill_under', $id)->get();
-                foreach ($subProducts as $subProduct) {
-                    Product::where('id', $subProduct->product_id)->increment('current_stock', $subProduct->stock);
-                    $customer = Customer::where('id', $bill->billable_id)->first();
-                    $customer->return()->create([
-                        'total_product_amount' => $subProduct->total_product_amount ?? null,
-                        'bill_no' => $subProduct->bill_no ?? null,
-                        'rate' => $subProduct->rate ?? null,
-                        'stock' => $subProduct->stock ?? null,
-                        'bill_under' => $returnId,
-                        'product_id' => $subProduct->product_id ?? null,
-                    ]);
-
-                }
-                Bill::where('bill_under', $id)->delete();
-                $bill->delete();
-                return redirect(route('bill'));
-            }
-
-
-        }
+        $billService->returnBill($productService, $vendorService, $customerService, $returnedService, $billUnders, $bill);
+        return redirect(route('bill'));
     }
 
-    public function createSales(SalesStoreRequest $request)
+    public function createSales(BillService       $billService,
+                                CustomerService   $customerService,
+                                ProductService    $productService,
+                                SalesStoreRequest $request)
     {
-        $billNoms = Bill::get();
-        foreach ($billNoms as $billNom) {
-            if ($billNom->bill_no === $request->billNum) {
-                return redirect()->back()->withErrors(['error' => 'Please enter different Bill Number']);
-            }
-        }
-        if ($request->receivable != null) {
-            if ($request->totalBill < $request->receivable) {
-                return redirect()->back()->withErrors(['error' => 'Credit amount exceeds total amount ']);
-            }
-        }
+
         $productIds = $request->input('product');
         $productStocks = $request->input('stock');
+
+//        Remaining
         foreach ($productIds as $index => $productId) {
             $stock = Product::where('id', $productId)->first();
             if ($productStocks[$index] > $stock->current_stock) {
                 return redirect()->back()->withErrors(['error' => 'Quantity exceeds the amount of stock we have on', $stock->name]);
             }
         }
-        $customerMain = Customer::where('id', $request->customer)->first();
-        $customerMain->bill()->create([
-            'receivable' => $request->receivable ?? null,
-            'total_bill_amount' => $request->totalBill,
-            'bill_no' => $request->billNum,
-            'vat' => $request->vat === "on" ? 1 : 0,
-            'discount_percentage' => $request->dPercentage ?? null,
-            'discount_amount' => $request->dAmount ?? null,
-            'bill_under' => null,
-            'bill_end_date' => $request->date ?? null,
-        ]);
 
-        if ($customerMain) {
-            $mainBillId = Bill::where('bill_no', $request->billNum)->first()->id;
-            $productNames = $request->input('product');
-            $totalAmounts = $request->input('total');
-            $stockAmounts = $request->input('stock');
-            $rateAmounts = $request->input('rate');
-            $customer = Customer::where('id', $request->customer)->first();
-            foreach ($productNames as $index => $productName) {
-                Product::where('id', $productName)->decrement('current_stock', $stockAmounts[$index]);
-                $customer->bill()->create([
-                    'total_product_amount' => $totalAmounts[$index],
-                    'bill_no' => $request->billNum,
-                    'rate' => $rateAmounts[$index],
-                    'stock' => $stockAmounts[$index],
-                    'bill_under' => $mainBillId,
-                    'product_id' => $productNames[$index],
-                ]);
 
-            }
-            return redirect(route('bill'));
+        $customerService->createCustomerBill($request);
+        $mainBillId = $billService->getMainBill($request);
+        $customerService->createCustomerBillProducts($request, $productService, $mainBillId);
+        return redirect(route('bill'));
 
-        }
     }
 
-    public function createPurchase(PurchaseStoreRequest $request)
+    public function createPurchase(BillService          $billService,
+                                   VendorService        $vendorService,
+                                   ProductService       $productService,
+                                   PurchaseStoreRequest $request)
     {
-        $billNoms = Bill::get();
-        foreach ($billNoms as $billNom) {
-            if ($billNom->bill_no === $request->billNum) {
-                return redirect()->back()->withErrors(['error' => 'Please enter different Bill Number']);
-            }
-        }
-        if ($request->payable != null) {
-            if ($request->totalBill < $request->payable) {
-                return redirect()->back()->withErrors(['error' => 'Credit amount exceeds total amount ']);
-            }
-        }
 
-        $vendorMain = Vendor::where('id', $request->vendor)->first();
-        $vendorMain->bill()->create([
-            'payable' => $request->payable ?? null,
-            'total_bill_amount' => $request->totalBill,
-            'bill_no' => $request->billNum,
-            'vat' => $request->vat === "on" ? 1 : 0,
-            'discount_percentage' => $request->dPercentage ?? null,
-            'discount_amount' => $request->dAmount ?? null,
-            'bill_under' => null,
-            'bill_end_date' => $request->date ?? null,
-        ]);
-
-        if ($vendorMain) {
-            $mainBillId = Bill::where('bill_no', $request->billNum)->first()->id;
-            $productNames = $request->input('product');
-            $totalAmounts = $request->input('total');
-            $stockAmounts = $request->input('stock');
-            $rateAmounts = $request->input('rate');
-            $vendor = Vendor::where('id', $request->vendor)->first();
-            foreach ($productNames as $index => $productName) {
-                Product::where('id', $productName)->increment('current_stock', $stockAmounts[$index]);
-                $vendor->bill()->create([
-                    'total_product_amount' => $totalAmounts[$index],
-                    'bill_no' => $request->billNum,
-                    'rate' => $rateAmounts[$index],
-                    'stock' => $stockAmounts[$index],
-                    'bill_under' => $mainBillId,
-                    'product_id' => $productNames[$index],
-                ]);
-            }
-            return redirect(route('bill'));
-        }
+        $vendorService->createVendorBill($request);
+        $mainBillId = $billService->getMainBill($request);
+        $vendorService->createVendorBillProducts($request, $productService, $mainBillId);
+        return redirect(route('bill'));
     }
 
-    public function updatePurchase($id, $stock, $price)
+    public function updatePurchase(BillService    $billService,
+                                   ProductService $productService,
+                                                  $id, $stock, $price)
     {
-        $bill = Bill::where('id', $id)->first();
-        $products = Product::get();
+        $bill = $billService->getBillById($id);
+        $products = $productService->getAll();
         return view('pages.Bills.updatePurchase', compact('bill', 'price', 'stock', 'id', 'products'));
     }
 
-    public function updateBillPurchase($id)
+    public function updateBillPurchase(BillService    $billService,
+                                       ProductService $productService,
+                                       VendorService  $vendorService,
+                                                      $id)
     {
-        $bill = Bill::where('id', $id)->first();
-        $subBills = Bill::where('bill_under', $id)->get();
-        $products = Product::get();
-        $vendors = Vendor::get();
-
+        $bill = $billService->getBillById($id);
+        $subBills = $billService->getSubBillById($id);
+        $products = $productService->getAll();
+        $vendors = $vendorService->getAll();
         return view('pages.Bills.updateBillPurchase', compact('bill', 'subBills', 'id', 'products', 'vendors'));
     }
 
-    public function updateBillSales($id)
+    public function updateBillSales(BillService     $billService,
+                                    ProductService  $productService,
+                                    CustomerService $customerService,
+                                                    $id)
     {
-        $bill = Bill::where('id', $id)->first();
-        $subBills = Bill::where('bill_under', $id)->get();
-        $products = Product::get();
-        $customers = Customer::get();
+        $bill = $billService->getBillById($id);
+        $subBills = $billService->getSubBillById($id);
+        $products = $productService->getAll();
+        $customers = $customerService->getAll();
 
         return view('pages.Bills.updateBillSales', compact('bill', 'subBills', 'id', 'products', 'customers'));
     }
 
-    public function savePurchase(PurchaseUpdateRequest $request, $id, $stock)
+    public function savePurchase(BillService           $billService,
+                                 ProductService        $productService,
+                                 PurchaseUpdateRequest $request, $id, $stock)
     {
-        $fetch = Bill::where('id', $id)->first();
-        $changedPrice = $fetch->total_product_amount - $request->total;
-        $changedStock = $stock - $request->stock;
-        Product::where('id', $request->product)->decrement('current_stock', $changedStock);
-        Bill::where('id', $fetch->bill_under)->decrement('total_bill_amount', $changedPrice);
-        Bill::where('id', $id)->update([
-            'total_product_amount' => $request->total,
-            'rate' => $request->rate,
-            'stock' => $request->stock,
-            'product_id' => $request->product,
-        ]);
+        $fetchData = $billService->getBillPriceStockById($id, $request, $stock);
+        list($fetch, $changedPrice, $changedStock) = $fetchData;
+        $mainBillData = $billService->getBillById($fetch->bill_under);
+        $subBillsData = $billService->getSubBillById($mainBillData->id);
+        $productService->decrementStock($changedStock, $request->product);
+        $billService->decrementTotal($changedPrice, $fetch->bill_under, $mainBillData, $subBillsData);
+        $billService->updateSubBill($id, $request);
         return redirect(route('bill'));
     }
 
 
-    public function updateSales($id, $stock, $price)
+    public function updateSales(BillService    $billService,
+                                ProductService $productService,
+                                               $id, $stock, $price)
     {
-        $bill = Bill::where('id', $id)->first();
-        $products = Product::get();
+        $bill = $billService->getBillById($id);
+        $products = $productService->getAll();
         return view('pages.Bills.updateSales', compact('bill', 'price', 'stock', 'id', 'products'));
     }
 
-    public function saveSales(SalesUpdateRequest $request, $id, $stock)
+    public function saveSales(BillService        $billService,
+                              ProductService     $productService,
+                              SalesUpdateRequest $request, $id, $stock)
     {
-
-        $fetch = Bill::where('id', $id)->first();
-        $changedPrice = $fetch->total_product_amount - $request->total;
-        $changedStock = $stock - $request->stock;
+        $fetchData = $billService->getBillPriceStockById($id, $request, $stock);
+        list($fetch, $changedPrice, $changedStock) = $fetchData;
+        $mainBillData = $billService->getBillById($fetch->bill_under);
+        $subBillsData = $billService->getSubBillById($mainBillData->id);
+//        Remaining
         $product = Product::where('id', $request->product)->first();
         if ($product->current_stock + $stock < $request->stock) {
             return redirect()->back()->withErrors(['error' => 'Quantity exceeds the amount of stock we have on']);
         }
-        $product->increment('current_stock', $changedStock);
-        Bill::where('id', $fetch->bill_under)->decrement('total_bill_amount', $changedPrice);
-        Bill::where('id', $id)->update([
-            'total_product_amount' => $request->total,
-            'rate' => $request->rate,
-            'stock' => $request->stock,
-            'product_id' => $request->product,
-        ]);
+        $productService->incrementStock($changedStock, $request->product);
+        $billService->decrementTotal($changedPrice, $fetch->bill_under, $mainBillData, $subBillsData);
+        $billService->updateSubBill($id, $request);
         return redirect(route('bill'));
     }
 
 
-    public function addSales()
+    public function addSales(CustomerService $customerService,
+                             ProductService  $productService)
     {
-        $customers = Customer::get();
-        $products = Product::get();
+        $customers = $customerService->getAll();
+        $products = $productService->getAll();
         return view('pages.Bills.addSales', compact('customers', 'products'));
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
-    }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function delete(BillService $billService, $id)
     {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Bill $bill)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Bill $bill)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Bill $bill)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function delete($id)
-    {
-        Bill::where('id', $id)->orWhere('bill_under', $id)->delete();
+        $billService->deleteBill($id);
         return redirect(route('bill'));
 
     }
 
-    public function deleteSubBill($id)
+    public function deleteSubBill(BillService    $billService,
+                                  ProductService $productService,
+                                  VendorService  $vendorService,
+                                                 $id)
     {
-        $fetch = Bill::where('id', $id)->first();
-        Product::where('id', $fetch->product_id)->decrement('current_stock', $fetch->stock);
-        Bill::where('id', $fetch->bill_under)->decrement('total_bill_amount', $fetch->total_product_amount);
-        $bill = Bill::where('id', $fetch->bill_under)->first();
-        $fetch->delete();
-        $subBills = Bill::where('bill_under', $bill->id)->get();
-        $products = Product::get();
-        $vendors = Vendor::get();
+        $fetch = $billService->getBillById($id);
+        //        Remaining
+        $product = Product::where('id', $fetch->product_id)->first();
+        if ($product->current_stock - $fetch->stock < 0) {
+            return redirect()->back()->withErrors(['error' => 'Stock Underflow']);
+        }
+        $productService->decrementStock($fetch->stock, $fetch->product_id);
+        $mainBillData = $billService->getBillById($fetch->bill_under);
+        $subBillsData = $billService->getSubBillById($mainBillData->id);
+        $billService->decrementTotal($fetch->total_product_amount, $fetch->bill_under, $mainBillData, $subBillsData);
+        $bill = $billService->getBillById($fetch->bill_under);
+        $billService->deleteBill($id);
+        $subBills = $billService->getSubBillById($fetch->bill_under);
+        $products = $productService->getAll();
+        $vendors = $vendorService->getAll();
 
         return view('pages.Bills.updateBillPurchase', compact('bill', 'subBills', 'id', 'products', 'vendors'));
     }
 
-    public function deleteSubBillSales($id)
+    public function deleteSubBillSales(BillService     $billService,
+                                       ProductService  $productService,
+                                       CustomerService $customerService,
+                                                       $id)
     {
-        $fetch = Bill::where('id', $id)->first();
-        Product::where('id', $fetch->product_id)->increment('current_stock', $fetch->stock);
-        Bill::where('id', $fetch->bill_under)->decrement('total_bill_amount', $fetch->total_product_amount);
-        $bill = Bill::where('id', $fetch->bill_under)->first();
-        $fetch->delete();
-        $subBills = Bill::where('bill_under', $bill->id)->get();
-        $products = Product::get();
-        $customers = Customer::get();
+        $fetch = $billService->getBillById($id);
+        $productService->incrementStock($fetch->stock, $fetch->product_id);
+        $mainBillData = $billService->getBillById($fetch->bill_under);
+        $subBillsData = $billService->getSubBillById($mainBillData->id);
+        $billService->decrementTotal($fetch->total_product_amount, $fetch->bill_under, $mainBillData, $subBillsData);
+        $bill = $billService->getBillById($fetch->bill_under);
+        $billService->deleteBill($id);
+        $subBills = $billService->getSubBillById($bill->id);
+        $products = $productService->getAll();
+        $customers = $customerService->getAll();
 
         return view('pages.Bills.updateBillSales', compact('bill', 'subBills', 'id', 'products', 'customers'));
     }

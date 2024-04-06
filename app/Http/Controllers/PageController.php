@@ -12,6 +12,14 @@ use App\Models\ProductStocksHistory;
 use App\Models\ReturnedProduct;
 use App\Models\Unit;
 use App\Models\Vendor;
+use App\Services\BillService;
+use App\Services\BrandService;
+use App\Services\CategoryService;
+use App\Services\CustomerService;
+use App\Services\ProductService;
+use App\Services\ReturnedService;
+use App\Services\UnitService;
+use App\Services\VendorService;
 use Illuminate\Http\Request;
 
 class PageController extends Controller
@@ -21,56 +29,51 @@ class PageController extends Controller
         return view('pages.index');
     }
 
-    public function category()
+    public function category(CategoryService $categoryService)
     {
-        $categories = Category::paginate(6);
+        $categories = $categoryService->getCategory();
         return view('pages.categories', compact('categories'));
     }
 
-    public function brand()
+    public function brand(BrandService $brandService)
     {
-        $brands = Brand::paginate(6);
+        $brands = $brandService->getBrand();
         return view('pages.brand', compact('brands'));
     }
 
-    public function unit()
+    public function unit(UnitService $unitService)
     {
-        $units = Unit::paginate(6);
+        $units = $unitService->getUnit();
         return view('pages.units', compact('units'));
     }
 
-    public function vendor()
+    public function vendor(VendorService $vendorService)
     {
-        $vendors = Vendor::paginate(6);
+        $vendors = $vendorService->getVendor();
         return view('pages.vendors', compact('vendors'));
     }
 
-    public function customer()
+    public function customer(CustomerService $customerService)
     {
-        $customers = Customer::paginate(6);
+        $customers = $customerService->getCustomer();
         return view('pages.customer', compact('customers'));
     }
 
-    public function product()
+    public function product(ProductService $productService)
     {
-        $products = Product::with(['category' => fn($q) => $q->select(['id', 'name'])])
-            ->with(['brand' => fn($q) => $q->select(['id', 'name'])])
-            ->with(['unit' => fn($q) => $q->select(['id', 'name'])])
-            ->paginate(6);
+        $products = $productService->getProduct();
         return view('pages.products', compact('products'));
     }
 
-    public function return()
+    public function return(ReturnedService $returnedService)
     {
-        $returns = ReturnedProduct::with(['returnable', 'product'])->where('bill_under', null)
-            ->paginate(6);
+        $returns = $returnedService->getReturnedProducts();
         return view('pages.returned', compact('returns'));
     }
 
-    public function bill()
+    public function bill(BillService $billService)
     {
-        $bills = Bill::with(['billable', 'product'])->where('bill_under', null)
-            ->paginate(6);
+        $bills = $billService->getBills();
         return view('pages.bill', compact('bills'));
     }
 }

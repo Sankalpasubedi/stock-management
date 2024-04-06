@@ -8,6 +8,7 @@ use App\Http\Requests\VendorStoreRequest;
 use App\Http\Requests\VendorUpdateRequest;
 use App\Models\Brand;
 use App\Models\Vendor;
+use App\Services\VendorService;
 use Illuminate\Http\Request;
 
 class VendorController extends Controller
@@ -23,13 +24,9 @@ class VendorController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create(VendorStoreRequest $request)
+    public function create(VendorService $vendorService, VendorStoreRequest $request)
     {
-        Vendor::create([
-            'name' => $request->name,
-            'address' => $request->address,
-            'phone_no' => $request->phone_no,
-        ]);
+        $vendorService->createVendor($request);
         return redirect(route('vendor'));
     }
 
@@ -60,26 +57,28 @@ class VendorController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function updateVendor($id)
+    public function updateVendor(VendorService $vendorService, $id)
     {
-        $vendor = Vendor::where('id', $id)->first();
+        $vendor = $vendorService->getVendorById($id);
         return view('pages.Vendor.updateVendor', compact('vendor'));
     }
 
-    public function update(VendorUpdateRequest $request, $id)
+    public function update(VendorService $vendorService, VendorUpdateRequest $request, $id)
     {
-
-        Vendor::where('id', $id)->update([
-            'name' => $request->name,
-            'address' => $request->address,
-            'phone_no' => $request->phone_no,
-        ]);
+        $vendorService->updateVendor($request, $id);
         return redirect(route('vendor'));
     }
 
-    public function delete($id)
+    public function searchVendor(VendorService $vendorService, Request $request)
     {
-        Vendor::where('id', $id)->delete();
+        $vendors = $vendorService->searchContent($request);
+
+        return view('pages.vendors', compact('vendors'));
+    }
+
+    public function delete(VendorService $vendorService, $id)
+    {
+        $vendorService->delete($id);
         return redirect(route('vendor'));
     }
 

@@ -23,7 +23,7 @@ use App\Http\Controllers\SearchController;
 |
 */
 
-Route::get('/', [PageController::class, 'home'])->name('home');
+Route::get('/', [PageController::class, 'bill'])->name('home');
 
 Route::get('/category', [PageController::class, 'category'])->name('category');
 Route::get('/addCategory', [CategoryController::class, 'addCategory'])->name('addCategory');
@@ -99,11 +99,11 @@ Route::patch('paidReturn/{id}', [ReturnedProductController::class, 'paidReturn']
 Route::delete('deleteReturned/{id}', [ReturnedProductController::class, 'deleteReturned'])->name('deleteReturned');
 
 
-Route::get('/searchProduct', [SearchController::class, 'searchProduct'])->name('searchProduct');
-Route::get('/searchCategory', [SearchController::class, 'searchCategory'])->name('searchCategory');
-Route::get('/searchUnit', [SearchController::class, 'searchUnit'])->name('searchUnit');
-Route::get('/searchBrand', [SearchController::class, 'searchBrand'])->name('searchBrand');
-Route::get('/searchVendor', [SearchController::class, 'searchVendor'])->name('searchVendor');
-Route::get('/searchCustomer', [SearchController::class, 'searchCustomer'])->name('searchCustomer');
-Route::get('/searchBill', [SearchController::class, 'searchBill'])->name('searchBill');
-Route::get('/searchReturn', [SearchController::class, 'searchReturn'])->name('searchReturn');
+Route::get('/searchProduct', [ProductController::class, 'searchProduct'])->name('searchProduct');
+Route::get('/searchCategory', [CategoryController::class, 'searchCategory'])->name('searchCategory');
+Route::get('/searchUnit', [UnitController::class, 'searchUnit'])->name('searchUnit');
+Route::get('/searchBrand', [BrandController::class, 'searchBrand'])->name('searchBrand');
+Route::get('/searchVendor', [VendorController::class, 'searchVendor'])->name('searchVendor');
+Route::get('/searchCustomer', [CustomerController::class, 'searchCustomer'])->name('searchCustomer');
+Route::get('/searchBill', [BillController::class, 'searchBill'])->name('searchBill');
+Route::get('/searchReturn', [ReturnedProductController::class, 'searchReturn'])->name('searchReturn');

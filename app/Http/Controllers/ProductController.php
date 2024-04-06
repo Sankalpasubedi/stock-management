@@ -8,6 +8,10 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\Unit;
+use App\Services\BrandService;
+use App\Services\CategoryService;
+use App\Services\ProductService;
+use App\Services\UnitService;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
@@ -15,27 +19,22 @@ class ProductController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function addProduct()
+    public function addProduct(CategoryService $categoryService,
+                               BrandService    $brandService,
+                               UnitService     $unitService)
     {
-        $categories = Category::get();
-        $brand = Brand::get();
-        $unit = Unit::get();
-        return view('pages.Product.addProducts', compact('categories', 'brand', 'unit'));
+        $categories = $categoryService->getall();
+        $brands = $brandService->getAll();
+        $units = $unitService->getAll();
+        return view('pages.Product.addProducts', compact('categories', 'brands', 'units'));
     }
 
     /**
      * Show the form for creating a new resource.
      */
-    public function create(ProductStoreRequest $request)
+    public function create(ProductService $productService, ProductStoreRequest $request)
     {
-        Product::create([
-            'name' => $request->name,
-            'category_id' => $request->category,
-            'brand_id' => $request->brand,
-            'current_stock' => 0,
-            'price' => $request->price,
-            'unit_id' => $request->unit,
-        ]);
+        $productService->create($request);
         return redirect(route('product'));
     }
 
@@ -63,43 +62,45 @@ class ProductController extends Controller
         //
     }
 
-    public function updateProduct($id)
+    public function updateProduct(ProductService  $productService,
+                                  CategoryService $categoryService,
+                                  BrandService    $brandService,
+                                  UnitService     $unitService,
+                                                  $id)
     {
-        $product = Product::where('id', $id)->first();
-        $categories = Category::get();
-        $brand = Brand::get();
-        $unit = Unit::get();
-        return view('pages.Product.updateProducts', compact('product', 'categories', 'brand', 'unit'));
+        $product = $productService->getProductById($id);
+        $categories = $categoryService->getall();
+        $brands = $brandService->getAll();
+        $units = $unitService->getAll();
+        return view('pages.Product.updateProducts', compact('product', 'categories', 'brands', 'units'));
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(ProductUpdateRequest $request, $id)
+    public function update(ProductService $productService, ProductUpdateRequest $request, $id)
     {
-
-        Product::where('id', $id)->update([
-            'name' => $request->name,
-            'category_id' => $request->category,
-            'brand_id' => $request->brand,
-            'current_stock' => $request->stock,
-            'price' => $request->price,
-            'unit_id' => $request->unit,
-        ]);
+        $productService->update($request, $id);
         return redirect(route('product'));
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function delete($id)
+    public function delete(ProductService $productService, $id)
     {
-        Product::where('id', $id)->delete();
+        $productService->delete($id);
         return redirect(route('product'));
     }
 
     public function destroy(Category $categories)
     {
         //
+    }
+
+    public function searchProduct(ProductService $productService, Request $request)
+    {
+        $products = $productService->searchContent($request);
+        return view('pages.products', compact('products'));
     }
 }

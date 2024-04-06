@@ -9,6 +9,7 @@ use App\Http\Requests\VendorUpdateRequest;
 use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\Vendor;
+use App\Services\CustomerService;
 use Cassandra\Custom;
 use Illuminate\Http\Request;
 
@@ -25,13 +26,9 @@ class CustomerController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create(CustomerStoreRequest $request)
+    public function create(CustomerService $customerService, CustomerStoreRequest $request)
     {
-        Customer::create([
-            'name' => $request->name,
-            'address' => $request->address,
-            'phone_no' => $request->phone_no,
-        ]);
+        $customerService->createCustomer($request);
         return redirect(route('customer'));
     }
 
@@ -62,26 +59,28 @@ class CustomerController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function updateCustomer($id)
+    public function updateCustomer(CustomerService $customerService, $id)
     {
-        $customer = Customer::where('id', $id)->first();
+        $customer = $customerService->getCustomerById($id);
         return view('pages.Customer.updateCustomer', compact('customer'));
     }
 
-    public function update(CustomerUpdateRequest $request, $id)
+    public function update(CustomerService $customerService, CustomerUpdateRequest $request, $id)
     {
 
-        Customer::where('id', $id)->update([
-            'name' => $request->name,
-            'address' => $request->address,
-            'phone_no' => $request->phone_no,
-        ]);
+        $customerService->updateCustomer($id, $request);
         return redirect(route('customer'));
     }
 
-    public function delete($id)
+    public function searchCustomer(CustomerService $customerService, Request $request)
     {
-        Customer::where('id', $id)->delete();
+        $customers = $customerService->searchContent($request);
+        return view('pages.customer', compact('customers'));
+    }
+
+    public function delete(CustomerService $customerService, $id)
+    {
+        $customerService->deleteCustomer($id);
         return redirect(route('customer'));
     }
 

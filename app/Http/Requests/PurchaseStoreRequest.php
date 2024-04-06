@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class PurchaseStoreRequest extends FormRequest
 {
@@ -26,9 +27,14 @@ class PurchaseStoreRequest extends FormRequest
             'product' => ['required'],
             'stock' => ['required'],
             'total' => ['required'],
-            'payable' => ['nullable'],
+            'payable' => ['nullable',
+                'numeric',
+                'lte:totalBill'
+            ],
             'bill_end_date' => ['nullable'],
-            'billNum' => ['required'],
+            'billNum' => ['required',
+                Rule::unique('bills', 'bill_no')
+            ],
             "vat" => ['nullable'],
         ];
     }
@@ -36,7 +42,9 @@ class PurchaseStoreRequest extends FormRequest
     public function messages()
     {
         return [
-            'billNum.required' => ['Bill number is required']
+            'billNum.required' => 'Bill number is required',
+            'billNum.unique' => 'Please enter different Bill Number',
+            'payable.lte' => 'The credit amount exceeds total amount'
         ];
     }
 }

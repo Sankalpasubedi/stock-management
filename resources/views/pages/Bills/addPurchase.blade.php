@@ -93,27 +93,6 @@
                 </div>
             </div>
         </div>
-        @if($errors->has('vendor'))
-            <div class="error">{{$errors->first('vendor')}}</div>
-        @endif
-        @if($errors->has('product'))
-            <div class="error">{{$errors->first('product')}}</div>
-        @endif
-        @if($errors->has('stock'))
-            <div class="error">{{$errors->first('stock')}}</div>
-        @endif
-        @if($errors->has('total'))
-            <div class="error"> {{$errors->first('total')}}</div>
-        @endif
-        @if($errors->has('payable'))
-            <div class="error"> {{$errors->first('payable')}}</div>
-        @endif
-        @if($errors->has('date'))
-            <div class="error">{{$errors->first('date')}} </div>
-        @endif
-        @if($errors->has('billNum'))
-            <div class="error">{{$errors->first('billNum')}} </div>
-        @endif
 
         <div class="row m-3">
             <div class="text-center col-6 bg-red fs-5 rounded rounded-pill">
@@ -123,7 +102,7 @@
             </div>
         </div>
 
-        <input class="text-center p-1 m-1 d-none" type="number" id="savedTotal"
+        <input class="text-center p-1 m-1 d-none" type="number" name="savedTotal" id="savedTotal"
         >
         <input class="text-center p-1 m-1 d-none" type="number" disabled name="discountPP" id="discountPP"
         >

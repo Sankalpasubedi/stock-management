@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\ValidateProductStock;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class SalesStoreRequest extends FormRequest
 {
@@ -26,16 +28,23 @@ class SalesStoreRequest extends FormRequest
             'product' => ['required'],
             'stock' => ['required'],
             'total' => ['required'],
-            'receivable' => ['nullable'],
+            'receivable' => ['nullable',
+                'numeric',
+                'lte:totalBill'],
             'date' => ['nullable'],
-            'billNum' => ['required']
+            'bill_end_date' => ['nullable'],
+            'billNum' => ['required',
+                Rule::unique('bills', 'bill_no')],
+            "vat" => ['nullable']
         ];
     }
 
     public function messages()
     {
         return [
-            'billNum.required' => ['Bill number is required']
+            'billNum.required' => 'Bill number is required',
+            'billNum.unique' => 'Please enter different Bill Number',
+            'receivable.lte' => 'The credit amount exceeds total amount'
         ];
     }
 }

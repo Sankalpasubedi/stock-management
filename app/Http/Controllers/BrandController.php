@@ -6,6 +6,7 @@ use App\Http\Requests\BrandStoreRequest;
 use App\Http\Requests\BrandUpdateRequest;
 use App\Models\Brand;
 use App\Models\Category;
+use App\Services\BrandService;
 use Illuminate\Http\Request;
 
 class BrandController extends Controller
@@ -21,16 +22,18 @@ class BrandController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create(BrandStoreRequest $request)
+    public function create(BrandService $brandService, BrandStoreRequest $request)
     {
-        $add = Brand::create([
-            'name' => $request->name,
-            'address' => $request->address,
-            'phone_no' => $request->phone_no,
-        ]);
-        if ($add) {
-            return redirect(route('brand'));
-        }
+        $brandService->create($request);
+
+        return redirect(route('brand'));
+    }
+
+    public function searchBrand(BrandService $brandService, Request $request)
+    {
+        $brands = $brandService->searchContent($request);
+
+        return view('pages.brand', compact('brands'));
     }
 
     /**
@@ -60,28 +63,23 @@ class BrandController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function updateBrand($id)
+    public function updateBrand(BrandService $brandService, $id)
     {
-        $brand = Brand::where('id', $id)->first();
+        $brand = $brandService->getBrandById($id);
         return view('pages.Brand.updateBrand', compact('brand'));
     }
 
-    public function update(BrandUpdateRequest $request, $id)
+    public function update(BrandService $brandService, BrandUpdateRequest $request, $id)
     {
-
-        Brand::where('id', $id)->update([
-            'name' => $request->name,
-            'address' => $request->address,
-            'phone_no' => $request->phone_no,
-        ]);
+        $brandService->updateBrand($request, $id);
 
         return redirect(route('brand'));
 
     }
 
-    public function delete($id)
+    public function delete(BrandService $brandService, $id)
     {
-        Brand::where('id', $id)->delete();
+        $brandService->delete($id);
         return redirect(route('brand'));
     }
 

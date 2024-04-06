@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CategoryStoreRequest;
 use App\Http\Requests\CategoryUpdateRequest;
 use App\Models\Category;
+use App\Services\CategoryService;
 use Illuminate\Http\Request;
 
 class CategoryController extends Controller
@@ -20,11 +21,9 @@ class CategoryController extends Controller
     /**
      * Show the form for creating a new resource.
      */
-    public function create(CategoryStoreRequest $request)
+    public function create(CategoryService $categoryService, CategoryStoreRequest $request)
     {
-        Category::create([
-            'name' => $request->name
-        ]);
+        $categoryService->addCategory($request);
         return redirect(route('category'));
     }
 
@@ -52,35 +51,40 @@ class CategoryController extends Controller
         //
     }
 
-    public function updateCategory($id)
+    public function updateCategory($id, CategoryService $categoryService)
     {
-        $category = Category::where('id', $id)->first();
+        $category = $categoryService->getCategoryById($id);
         return view('pages.Category.updateCategory', compact('category'));
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(CategoryUpdateRequest $request, $id)
+    public function update(CategoryService $categoryService, CategoryUpdateRequest $request, $id)
     {
-
-        Category::where('id', $id)->update([
-            'name' => $request->name
-        ]);
+        $categoryService->updateCategory($request, $id);
         return redirect(route('category'));
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function delete($id)
+    public function delete(CategoryService $categoryService, $id)
     {
-        Category::where('id', $id)->delete();
+        $categoryService->delete($id);
         return redirect(route('category'));
     }
 
     public function destroy(Category $categories)
     {
         //
+    }
+
+    public function searchCategory(CategoryService $categoryService, Request $request)
+    {
+        $categories = $categoryService->searchContent($request);
+
+        return view('pages.categories', compact('categories'));
+
     }
 }

@@ -28,13 +28,13 @@
                 {{$product->category->name ?? ''}}
             </div>
             <div class="col-2 text-center">
-                {{$product->brand->name}}
+                {{$product->brand->name ?? ''}}
             </div>
             <div class="col-1 text-center">
                 {{$product->current_stock}}
             </div>
             <div class="col-2 text-center">
-                {{$product->unit->name}}
+                {{$product->unit->name ?? ''}}
             </div>
             <div class="col-1 text-center">
                 {{$product->price}}
