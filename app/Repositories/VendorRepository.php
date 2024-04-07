@@ -46,5 +46,10 @@ class VendorRepository extends BaseRepository implements VendorRepositoryInterfa
         return $vendor->bill()->create($data);
     }
 
+    public function createReturnProduct($vendor, $data)
+    {
+        return $vendor->return()->create($data);
+    }
+
 
 }

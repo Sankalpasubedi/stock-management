@@ -7,10 +7,17 @@ use App\Http\Requests\BrandUpdateRequest;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Services\BrandService;
+use App\Traits\Messages;
+use App\Traits\SuccessMessage;
 use Illuminate\Http\Request;
+use App\Exceptions\CustomException;
+use Illuminate\Support\Facades\DB;
+
 
 class BrandController extends Controller
 {
+    use SuccessMessage;
+
     /**
      * Display a listing of the resource.
      */
@@ -24,40 +31,29 @@ class BrandController extends Controller
      */
     public function create(BrandService $brandService, BrandStoreRequest $request)
     {
-        $brandService->create($request);
+        try {
+            DB::beginTransaction();
+            $brandService->create($request);
+            DB::commit();
+            $this->getSuccessMessage('Brand');
+            return redirect(route('brand'));
 
-        return redirect(route('brand'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('brand'));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
+
     }
 
     public function searchBrand(BrandService $brandService, Request $request)
     {
         $brands = $brandService->searchContent($request);
-
         return view('pages.brand', compact('brands'));
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Brand $brands)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Brand $brands)
-    {
-        //
     }
 
     /**
@@ -71,23 +67,46 @@ class BrandController extends Controller
 
     public function update(BrandService $brandService, BrandUpdateRequest $request, $id)
     {
-        $brandService->updateBrand($request, $id);
+        try {
+            DB::beginTransaction();
+            $brandService->updateBrand($request, $id);
+            DB::commit();
+            $this->getUpdateSuccessMessage('Brand');
+            return redirect(route('brand'));
 
-        return redirect(route('brand'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('brand'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
 
     }
 
     public function delete(BrandService $brandService, $id)
     {
-        $brandService->delete($id);
-        return redirect(route('brand'));
+        try {
+            DB::beginTransaction();
+            $brandService->delete($id);
+            DB::commit();
+            $this->getDestroySuccessMessage('Brand');
+            return redirect(route('brand'));
+
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('brand'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
+
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Brand $brands)
-    {
-        //
-    }
 }

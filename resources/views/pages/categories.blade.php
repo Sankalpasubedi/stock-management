@@ -1,6 +1,15 @@
 @extends('layouts.app')
 @section('body')
     <div class="row m-3">
+        <div class="col-12 text-end">
+            @foreach($errors->all() as $error)
+                @foreach($error as $message)
+                    {{$message}}
+                @endforeach
+            @endforeach
+        </div>
+    </div>
+    <div class="row m-3">
         <div class="col-2"><a href="{{route('category')}}"> <label class="back rounded-2">Back</label></a>
         </div>
         <div class="col-10 d-flex justify-content-end">

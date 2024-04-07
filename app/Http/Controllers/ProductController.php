@@ -12,10 +12,16 @@ use App\Services\BrandService;
 use App\Services\CategoryService;
 use App\Services\ProductService;
 use App\Services\UnitService;
+use App\Traits\Messages;
+use App\Traits\SuccessMessage;
 use Illuminate\Http\Request;
+use App\Exceptions\CustomException;
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
+    use SuccessMessage;
+
     /**
      * Display a listing of the resource.
      */
@@ -34,33 +40,26 @@ class ProductController extends Controller
      */
     public function create(ProductService $productService, ProductStoreRequest $request)
     {
-        $productService->create($request);
-        return redirect(route('product'));
+        try {
+            DB::beginTransaction();
+            $productService->create($request);
+            DB::commit();
+            $this->getSuccessMessage('Product');
+            return redirect(route('product'));
+
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('product'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
+
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Category $categories)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Category $categories)
-    {
-        //
-    }
 
     public function updateProduct(ProductService  $productService,
                                   CategoryService $categoryService,
@@ -80,22 +79,47 @@ class ProductController extends Controller
      */
     public function update(ProductService $productService, ProductUpdateRequest $request, $id)
     {
-        $productService->update($request, $id);
-        return redirect(route('product'));
+        try {
+            DB::beginTransaction();
+            $productService->update($request, $id);
+            DB::commit();
+            $this->getUpdateSuccessMessage('Product');
+            return redirect(route('product'));
+
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('product'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
+
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
+
     public function delete(ProductService $productService, $id)
     {
-        $productService->delete($id);
-        return redirect(route('product'));
-    }
+        try {
+            DB::beginTransaction();
+            $productService->delete($id);
+            DB::commit();
+            $this->getDestroySuccessMessage('Product');
+            return redirect(route('product'));
 
-    public function destroy(Category $categories)
-    {
-        //
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('product'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
+
     }
 
     public function searchProduct(ProductService $productService, Request $request)

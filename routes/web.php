@@ -107,3 +107,5 @@ Route::get('/searchVendor', [VendorController::class, 'searchVendor'])->name('se
 Route::get('/searchCustomer', [CustomerController::class, 'searchCustomer'])->name('searchCustomer');
 Route::get('/searchBill', [BillController::class, 'searchBill'])->name('searchBill');
 Route::get('/searchReturn', [ReturnedProductController::class, 'searchReturn'])->name('searchReturn');
+
+Route::get('/error', [PageController::class, 'throwError'])->name('error');

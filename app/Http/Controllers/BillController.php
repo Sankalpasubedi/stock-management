@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\CustomException;
 use App\Http\Requests\PurchaseStoreRequest;
 use App\Http\Requests\PurchaseUpdateRequest;
 use App\Http\Requests\SalesStoreRequest;
@@ -16,10 +17,15 @@ use App\Services\CustomerService;
 use App\Services\ProductService;
 use App\Services\ReturnedService;
 use App\Services\VendorService;
+use App\Traits\Messages;
+use App\Traits\SuccessMessage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class BillController extends Controller
 {
+    use SuccessMessage;
+
     /**
      * Display a listing of the resource.
      */
@@ -43,8 +49,21 @@ class BillController extends Controller
 
     public function paidBill(BillService $billService, $id)
     {
-        $billService->creditAmountPaid($id);
-        return redirect(route('bill'));
+        try {
+            DB::beginTransaction();
+            $billService->creditAmountPaid($id);
+            DB::commit();
+            $this->getTaskSuccessMessage('Bill Payed');
+            return redirect(route('bill'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('bill'));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
     }
 
     public function saveBillPurchase(BillService   $billService,
@@ -52,9 +71,23 @@ class BillController extends Controller
                                      Request       $request,
                                                    $id)
     {
-        $vendor = $vendorService->getVendorById($request->vendor);
-        $billService->updatePurchaseBill($id, $request, $vendor);
-        return redirect(route('bill'))->with('success', 'Bill updated successfully.');
+        try {
+            DB::beginTransaction();
+            $billService->updatePurchaseBill($id, $request, $vendorService);
+            DB::commit();
+            $this->getUpdateSuccessMessage('Bill');
+            return redirect(route('bill'));
+
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('bill'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
 
     }
 
@@ -62,18 +95,28 @@ class BillController extends Controller
                                   CustomerService $customerService,
                                   Request         $request, $id)
     {
-        $customer = $customerService->getCustomerById($request->customer);
-        $billService->updateSalesBill($id, $request, $customer);;
-        return redirect(route('bill'))->with('success', 'Bill updated successfully.');
+        try {
+            DB::beginTransaction();
+            $billService->updateSalesBill($id, $request, $customerService);
+            DB::commit();
+            $this->getUpdateSuccessMessage('Bill');
+            return redirect(route('bill'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('bill'));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
 
     }
 
     public function previewBill(BillService $billService, $id)
     {
-
-        $mainBill = $billService->getBillById($id);
-        $billCalculations = $billService->getBillAmounts($id, $mainBill);
-        list($total, $taxableAmount, $subProducts, $discountAmt, $vatAmt) = $billCalculations;
+        $billCalculations = $billService->getBillAmounts($id);
+        list($mainBill, $total, $taxableAmount, $subProducts, $discountAmt, $vatAmt) = $billCalculations;
         return view('pages.Bills.previewBill', compact('mainBill', 'total', 'taxableAmount', 'subProducts', 'discountAmt', 'vatAmt'));
     }
 
@@ -84,18 +127,22 @@ class BillController extends Controller
                                   ReturnedService $returnedService,
                                                   $id)
     {
-        $bill = $billService->getBillById($id);
-        $billUnders = $billService->getSubBillById($id);
 
-//        Remaining
-        foreach ($billUnders as $billUnder) {
-            $product = Product::where('id', $billUnder->product_id)->first();
-            if ($product->current_stock - $billUnder->stock < 0) {
-                return redirect()->back()->withErrors(['error' => 'Stock is less than what we need to return', $product->name]);
-            }
+        try {
+            DB::beginTransaction();
+            $billService->returnBill($productService, $vendorService, $customerService, $returnedService, $id);
+            DB::commit();
+            $this->getTaskSuccessMessage('Bill Returned');
+            return redirect(route('bill'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('bill'));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
         }
-        $billService->returnBill($productService, $vendorService, $customerService, $returnedService, $billUnders, $bill);
-        return redirect(route('bill'));
+
     }
 
     public function createSales(BillService       $billService,
@@ -104,22 +151,21 @@ class BillController extends Controller
                                 SalesStoreRequest $request)
     {
 
-        $productIds = $request->input('product');
-        $productStocks = $request->input('stock');
-
-//        Remaining
-        foreach ($productIds as $index => $productId) {
-            $stock = Product::where('id', $productId)->first();
-            if ($productStocks[$index] > $stock->current_stock) {
-                return redirect()->back()->withErrors(['error' => 'Quantity exceeds the amount of stock we have on', $stock->name]);
-            }
+        try {
+            DB::beginTransaction();
+            $customerService->createCustomerBill($billService, $productService, $request);
+            DB::commit();
+            $this->getSuccessMessage('Bill');
+            return redirect(route('bill'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('addSales'));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
         }
 
-
-        $customerService->createCustomerBill($request);
-        $mainBillId = $billService->getMainBill($request);
-        $customerService->createCustomerBillProducts($request, $productService, $mainBillId);
-        return redirect(route('bill'));
 
     }
 
@@ -128,11 +174,22 @@ class BillController extends Controller
                                    ProductService       $productService,
                                    PurchaseStoreRequest $request)
     {
+        try {
+            DB::beginTransaction();
+            $vendorService->createVendorBillProducts($request, $productService, $billService);
+            DB::commit();
+            $this->getSuccessMessage('Bill');
+            return redirect(route('bill'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('bill'));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
 
-        $vendorService->createVendorBill($request);
-        $mainBillId = $billService->getMainBill($request);
-        $vendorService->createVendorBillProducts($request, $productService, $mainBillId);
-        return redirect(route('bill'));
+
     }
 
     public function updatePurchase(BillService    $billService,
@@ -173,14 +230,21 @@ class BillController extends Controller
                                  ProductService        $productService,
                                  PurchaseUpdateRequest $request, $id, $stock)
     {
-        $fetchData = $billService->getBillPriceStockById($id, $request, $stock);
-        list($fetch, $changedPrice, $changedStock) = $fetchData;
-        $mainBillData = $billService->getBillById($fetch->bill_under);
-        $subBillsData = $billService->getSubBillById($mainBillData->id);
-        $productService->decrementStock($changedStock, $request->product);
-        $billService->decrementTotal($changedPrice, $fetch->bill_under, $mainBillData, $subBillsData);
-        $billService->updateSubBill($id, $request);
-        return redirect(route('bill'));
+        try {
+            DB::beginTransaction();
+            $billService->updateSubBillPurchase($id, $request, $productService, $stock);
+            DB::commit();
+            $this->getUpdateSuccessMessage('Bill');
+            return redirect(route('bill'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('bill'));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
     }
 
 
@@ -197,19 +261,22 @@ class BillController extends Controller
                               ProductService     $productService,
                               SalesUpdateRequest $request, $id, $stock)
     {
-        $fetchData = $billService->getBillPriceStockById($id, $request, $stock);
-        list($fetch, $changedPrice, $changedStock) = $fetchData;
-        $mainBillData = $billService->getBillById($fetch->bill_under);
-        $subBillsData = $billService->getSubBillById($mainBillData->id);
-//        Remaining
-        $product = Product::where('id', $request->product)->first();
-        if ($product->current_stock + $stock < $request->stock) {
-            return redirect()->back()->withErrors(['error' => 'Quantity exceeds the amount of stock we have on']);
+        try {
+            DB::beginTransaction();
+            $billService->updateSubBillSales($id, $request, $productService, $stock);
+            DB::commit();
+            $this->getUpdateSuccessMessage('Bill');
+            return redirect(route('bill'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect()->back();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
         }
-        $productService->incrementStock($changedStock, $request->product);
-        $billService->decrementTotal($changedPrice, $fetch->bill_under, $mainBillData, $subBillsData);
-        $billService->updateSubBill($id, $request);
-        return redirect(route('bill'));
+
+
     }
 
 
@@ -224,8 +291,20 @@ class BillController extends Controller
 
     public function delete(BillService $billService, $id)
     {
-        $billService->deleteBill($id);
-        return redirect(route('bill'));
+        try {
+            DB::beginTransaction();
+            $billService->deleteBill($id);
+            DB::commit();
+            $this->getDestroySuccessMessage('Bill');
+            return redirect(route('bill'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('bill'));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
 
     }
 
@@ -234,23 +313,22 @@ class BillController extends Controller
                                   VendorService  $vendorService,
                                                  $id)
     {
-        $fetch = $billService->getBillById($id);
-        //        Remaining
-        $product = Product::where('id', $fetch->product_id)->first();
-        if ($product->current_stock - $fetch->stock < 0) {
-            return redirect()->back()->withErrors(['error' => 'Stock Underflow']);
+        try {
+            DB::beginTransaction();
+            $data = $billService->deleteSubBillsPurchase($productService, $vendorService, $id);
+            [$bill, $subBills, $products, $vendors] = $data;
+            DB::commit();
+            $this->getDestroySuccessMessage('Sub Bill');
+            return view('pages.Bills.updateBillPurchase', compact('bill', 'subBills', 'products', 'vendors'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect()->back();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
         }
-        $productService->decrementStock($fetch->stock, $fetch->product_id);
-        $mainBillData = $billService->getBillById($fetch->bill_under);
-        $subBillsData = $billService->getSubBillById($mainBillData->id);
-        $billService->decrementTotal($fetch->total_product_amount, $fetch->bill_under, $mainBillData, $subBillsData);
-        $bill = $billService->getBillById($fetch->bill_under);
-        $billService->deleteBill($id);
-        $subBills = $billService->getSubBillById($fetch->bill_under);
-        $products = $productService->getAll();
-        $vendors = $vendorService->getAll();
 
-        return view('pages.Bills.updateBillPurchase', compact('bill', 'subBills', 'id', 'products', 'vendors'));
     }
 
     public function deleteSubBillSales(BillService     $billService,
@@ -258,17 +336,21 @@ class BillController extends Controller
                                        CustomerService $customerService,
                                                        $id)
     {
-        $fetch = $billService->getBillById($id);
-        $productService->incrementStock($fetch->stock, $fetch->product_id);
-        $mainBillData = $billService->getBillById($fetch->bill_under);
-        $subBillsData = $billService->getSubBillById($mainBillData->id);
-        $billService->decrementTotal($fetch->total_product_amount, $fetch->bill_under, $mainBillData, $subBillsData);
-        $bill = $billService->getBillById($fetch->bill_under);
-        $billService->deleteBill($id);
-        $subBills = $billService->getSubBillById($bill->id);
-        $products = $productService->getAll();
-        $customers = $customerService->getAll();
+        try {
+            DB::beginTransaction();
+            $data = $billService->deleteSubBillsSales($productService, $customerService, $id);
+            [$bill, $subBills, $products, $customers] = $data;
+            DB::commit();
+            $this->getDestroySuccessMessage('Sub Bill');
+            return view('pages.Bills.updateBillSales', compact('bill', 'subBills', 'id', 'products', 'customers'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect()->back();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
 
-        return view('pages.Bills.updateBillSales', compact('bill', 'subBills', 'id', 'products', 'customers'));
     }
 }

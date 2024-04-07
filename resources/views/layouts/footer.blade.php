@@ -30,8 +30,8 @@
 <script src="{{url('dist/js/adminlte.js')}}"></script>
 <!-- AdminLTE dashboard demo (This is only for demo purposes) -->
 <script src="{{url('dist/js/pages/dashboard.js')}}"></script>
-</body>
 <script>
+
     function payment(event) {
         var conf = confirm('Is the payment done?');
         if (conf === false) {
@@ -300,5 +300,42 @@
 
         vButton.addEventListener('change', vatT);
     });
+
+
+    @if(Session::has('success'))
+    toastr.success("{{ Session::get('success') }}");
+    @php
+        Session::forget('success');
+    @endphp
+    @endif
+
+    @if(Session::has('customError'))
+    console.log('error')
+    toastr.error("{{ Session::get('customError') }}");
+    @php
+        Session::forget('CustomError');
+    @endphp
+    @endif
+
+    @if(Session::has('update'))
+    toastr.success("{{ Session::get('update') }}");
+    @php
+        Session::forget('update');
+    @endphp
+    @endif
+
+    @if(Session::has('destroy'))
+    toastr.success("{{ Session::get('destroy') }}");
+    @php
+        Session::forget('destroy');
+    @endphp
+    @endif
+
+    @if($errors->any())
+    @foreach( array_reverse($errors->all()) as $error )
+    toastr.error("{{ $error }}");
+    @endforeach
+    @endif
 </script>
+</body>
 </html>

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\CustomException;
 use App\Models\Bill;
 use App\Models\Customer;
 use App\Models\Product;
@@ -27,8 +28,15 @@ class BillService
         $this->billRepository->update($id, $data);
     }
 
-    public function updateSubBill($id, $request)
+    public function updateSubBillPurchase($id, $request,
+                                          ProductService $productService, $stock)
     {
+        $fetchData = $this->getBillPriceStockById($id, $request, $stock);
+        list($fetch, $changedPrice, $changedStock) = $fetchData;
+        $mainBillData = $this->getBillById($fetch->bill_under);
+        $subBillsData = $this->getSubBillById($mainBillData->id);
+        $productService->decrementStock($changedStock, $request->product);
+        $this->decrementTotal($changedPrice, $fetch->bill_under, $mainBillData, $subBillsData);
         $data = [
             'total_product_amount' => $request->total,
             'rate' => $request->rate,
@@ -39,8 +47,34 @@ class BillService
         return $this->billRepository->update($id, $data);
     }
 
-    public function updatePurchaseBill($id, $request, $vendor)
+    public function updateSubBillSales($id, $request,
+                                       ProductService $productService, $stock)
     {
+
+        $fetchData = $this->getBillPriceStockById($id, $request, $stock);
+        list($fetch, $changedPrice, $changedStock) = $fetchData;
+        $mainBillData = $this->getBillById($fetch->bill_under);
+        $subBillsData = $this->getSubBillById($mainBillData->id);
+        $product = $productService->getProductById($request->product);
+        if ($product->current_stock + $stock < $request->stock) {
+            throw new CustomException("Quantity exceeds the amount of stock we have on");
+        }
+        $productService->incrementStock($changedStock, $request->product);
+        $this->decrementTotal($changedPrice, $fetch->bill_under, $mainBillData, $subBillsData);
+        $data = [
+            'total_product_amount' => $request->total,
+            'rate' => $request->rate,
+            'stock' => $request->stock,
+            'product_id' => $request->product,
+
+        ];
+        return $this->billRepository->update($id, $data);
+    }
+
+    public function updatePurchaseBill($id, $request,
+                                       VendorService $vendorService)
+    {
+        $vendor = $vendorService->getVendorById($request->vendor);
         $data = [
             'billable_id' => $vendor->id,
             'payable' => $request->payable ?? null,
@@ -51,8 +85,10 @@ class BillService
         return $this->billRepository->update($id, $data);
     }
 
-    public function updateSalesBill($id, $request, $customer)
+    public function updateSalesBill($id, $request,
+                                    CustomerService $customerService)
     {
+        $customer = $customerService->getCustomerById($request->customer);
         $data = [
             'billable_id' => $customer->id,
             'receivable' => $request->receivable ?? null,
@@ -84,8 +120,10 @@ class BillService
         return $this->billRepository->getAllPaginate(6);
     }
 
-    public function getBillAmounts($id, $mainBill)
+    public function getBillAmounts($id)
     {
+        $mainBill = $this->getBillById($id);
+
         $subProducts = $this->billRepository->getById($id);
         $total = 0;
         foreach ($subProducts as $subProduct) {
@@ -105,7 +143,7 @@ class BillService
             $vatAmt = 0;
         }
         $taxableAmount = $total - $discountAmt;
-        return [$total, $taxableAmount, $subProducts, $discountAmt, $vatAmt];
+        return [$mainBill, $total, $taxableAmount, $subProducts, $discountAmt, $vatAmt];
     }
 
     public function getBillById($id)
@@ -163,45 +201,27 @@ class BillService
                                VendorService   $vendorService,
                                CustomerService $customerService,
                                ReturnedService $returnedService,
-                                               $subProducts, $bill)
+                                               $id)
     {
+        $bill = $this->getBillById($id);
+        $subProducts = $this->getSubBillById($id);
 
         if ($bill->billable_type === 'vendor') {
+            foreach ($subProducts as $billUnder) {
+                $product = $productService->getProductById($billUnder->product_id);
+                if ($product->current_stock - $billUnder->stock < 0) {
+                    throw new CustomException("Stock is less than what we need to return");
+                }
+            }
             $vendorService->createVendorReturn($bill);
             $returnVendorId = $returnedService->getFromBillNo($bill->bill_no);
             $vendorService->createVendorReturnProducts($productService, $subProducts, $returnVendorId, $bill);
             return $this->billRepository->deleteAllBills($bill->id);
         } elseif ($bill->billable_type === 'customer') {
-
-
-            $customerMain = Customer::where('id', $bill->billable_id)->first();
-            $customerMain->return()->create([
-                'receivable' => $bill->receivable ?? null,
-                'total_bill_amount' => $bill->total_bill_amount,
-                'bill_no' => $bill->bill_no,
-                'bill_under' => null,
-                'bill_end_date' => $bill->bill_end_date ?? null,
-            ]);
-
-            if ($customerMain) {
-                $returnId = ReturnedProduct::where('bill_no', $bill->bill_no)->first()->id;
-                $subProducts = Bill::where('bill_under', $id)->get();
-                foreach ($subProducts as $subProduct) {
-                    Product::where('id', $subProduct->product_id)->increment('current_stock', $subProduct->stock);
-                    $customer = Customer::where('id', $bill->billable_id)->first();
-                    $customer->return()->create([
-                        'total_product_amount' => $subProduct->total_product_amount ?? null,
-                        'bill_no' => $subProduct->bill_no ?? null,
-                        'rate' => $subProduct->rate ?? null,
-                        'stock' => $subProduct->stock ?? null,
-                        'bill_under' => $returnId,
-                        'product_id' => $subProduct->product_id ?? null,
-                    ]);
-
-                }
-                Bill::where('bill_under', $id)->delete();
-                return $bill->delete();
-            }
+            $customerService->createCustomerReturn($bill);
+            $returnCustomerId = $returnedService->getFromBillNo($bill->bill_no);
+            $customerService->createCustomerReturnProducts($productService, $subProducts, $returnCustomerId, $bill);
+            return $this->billRepository->deleteAllBills($bill->id);
 
 
         }
@@ -221,9 +241,42 @@ class BillService
         return $this->billRepository->all();
     }
 
-    public function addBill($request)
+    public function deleteSubBillsSales(ProductService  $productService,
+                                        CustomerService $customerService,
+                                                        $id)
     {
+        $fetch = $this->getBillById($id);
+        $productService->incrementStock($fetch->stock, $fetch->product_id);
+        $mainBillData = $this->getBillById($fetch->bill_under);
+        $subBillsData = $this->getSubBillById($mainBillData->id);
+        $this->decrementTotal($fetch->total_product_amount, $fetch->bill_under, $mainBillData, $subBillsData);
+        $bill = $this->getBillById($fetch->bill_under);
+        $this->deleteBill($id);
+        $subBills = $this->getSubBillById($bill->id);
+        $products = $this->getAll();
+        $customers = $this->getAll();
+        return [$bill, $subBills, $products, $customers];
+    }
 
+    public function deleteSubBillsPurchase(ProductService $productService,
+                                           VendorService  $vendorService,
+                                                          $id)
+    {
+        $fetch = $this->getBillById($id);
+        $product = $productService->getProductById($fetch->product_id);
+        if ($product->current_stock - $fetch->stock < 0) {
+            throw new CustomException("Stock Underflow");
+        }
+        $productService->decrementStock($fetch->stock, $fetch->product_id);
+        $mainBillData = $this->getBillById($fetch->bill_under);
+        $subBillsData = $this->getSubBillById($mainBillData->id);
+        $this->decrementTotal($fetch->total_product_amount, $fetch->bill_under, $mainBillData, $subBillsData);
+        $bill = $this->getBillById($fetch->bill_under);
+        $this->deleteBill($id);
+        $subBills = $this->getSubBillById($fetch->bill_under);
+        $products = $this->getAll();
+        $vendors = $this->getAll();
+        return [$bill, $subBills, $products, $vendors];
     }
 
     public function searchContent($request)

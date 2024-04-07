@@ -39,7 +39,7 @@ class VendorService
 
     public function getVendorById($id)
     {
-        return $this->vendorRepository->findById($id);
+        return $this->vendorRepository->findFirstById($id);
     }
 
     public function updateVendor($request, $id)
@@ -90,8 +90,11 @@ class VendorService
     }
 
     public function createVendorBillProducts($request,
-                                             ProductService $productService, $mainBillId)
+                                             ProductService $productService,
+                                             BillService $billService)
     {
+        $this->createVendorBill($request);
+        $mainBillId = $billService->getMainBill($request);
         $productNames = $request->input('product');
         $totalAmounts = $request->input('total');
         $stockAmounts = $request->input('stock');
@@ -117,14 +120,15 @@ class VendorService
         foreach ($subProducts as $subProduct) {
             $productService->decrementStock($subProduct->stock, $subProduct->product_id);
             $vendor = $this->vendorRepository->findFirstById($bill->billable_id);
-            $vendor->return()->create([
+            $data = [
                 'total_product_amount' => $subProduct->total_product_amount ?? null,
                 'bill_no' => $subProduct->bill_no ?? null,
                 'rate' => $subProduct->rate ?? null,
                 'stock' => $subProduct->stock ?? null,
                 'bill_under' => $returnVendorId,
                 'product_id' => $subProduct->product_id ?? null,
-            ]);
+            ];
+            $this->vendorRepository->createReturnProduct($vendor, $data);
 
         }
     }

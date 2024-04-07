@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Exceptions\CustomException;
+use App\Models\Product;
 use App\Repositories\Interfaces\CustomerRepositoryInterface;
 
 class CustomerService
@@ -23,11 +25,21 @@ class CustomerService
 
     public function getCustomerById($id)
     {
-        return $this->customerRepository->findById($id);
+        return $this->customerRepository->findFirstById($id);
     }
 
-    public function createCustomerBill($request)
+    public function createCustomerBill(BillService    $billService,
+                                       ProductService $productService,
+                                                      $request)
     {
+        $productIds = $request->input('product');
+        $productStocks = $request->input('stock');
+        foreach ($productIds as $index => $productId) {
+            $stock = $productService->getProductById($productId);
+            if ($productStocks[$index] > $stock->current_stock) {
+                throw new CustomException("Quantity exceeds the amount of stock we have on");
+            }
+        }
         $customerMain = $this->customerRepository->findFirstById($request->customer);
         $data = [
             'receivable' => $request->receivable ?? null,
@@ -39,8 +51,9 @@ class CustomerService
             'bill_under' => null,
             'bill_end_date' => $request->date ?? null,
         ];
-        return $this->customerRepository->createBill($customerMain, $data);
-
+        $this->customerRepository->createBill($customerMain, $data);
+        $mainBillId = $billService->getMainBill($request);
+        $this->createCustomerBillProducts($request, $productService, $mainBillId);
     }
 
     public function createCustomer($request)
@@ -72,6 +85,38 @@ class CustomerService
     public function searchContent($request)
     {
         return $this->customerRepository->search($request);
+    }
+
+    public function createCustomerReturn($bill)
+    {
+        $customerMain = $this->getCustomerById($bill->billable_id);
+        $data = [
+            'receivable' => $bill->receivable ?? null,
+            'total_bill_amount' => $bill->total_bill_amount,
+            'bill_no' => $bill->bill_no,
+            'bill_under' => null,
+            'bill_end_date' => $bill->bill_end_date ?? null,
+        ];
+        return $this->customerRepository->createReturn($customerMain, $data);
+    }
+
+    public function createCustomerReturnProducts(ProductService $productService,
+                                                                $subProducts,
+                                                                $returnCustomerId, $bill)
+    {
+        foreach ($subProducts as $subProduct) {
+            $productService->incrementStock($subProduct->stock, $subProduct->product_id);
+            $customer = $this->customerRepository->findFirstById($bill->billable_id);
+            $data = [
+                'total_product_amount' => $subProduct->total_product_amount ?? null,
+                'bill_no' => $subProduct->bill_no ?? null,
+                'rate' => $subProduct->rate ?? null,
+                'stock' => $subProduct->stock ?? null,
+                'bill_under' => $returnCustomerId,
+                'product_id' => $subProduct->product_id ?? null,
+            ];
+            return $this->customerRepository->createReturnProduct($customer, $data);
+        }
     }
 
     public function createCustomerBillProducts($request,

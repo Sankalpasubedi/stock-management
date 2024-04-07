@@ -29,6 +29,11 @@ class PageController extends Controller
         return view('pages.index');
     }
 
+    public function throwError()
+    {
+        return view('pages.Error.globalError');
+    }
+
     public function category(CategoryService $categoryService)
     {
         $categories = $categoryService->getCategory();

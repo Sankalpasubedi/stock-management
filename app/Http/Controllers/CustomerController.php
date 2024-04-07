@@ -10,11 +10,18 @@ use App\Models\Brand;
 use App\Models\Customer;
 use App\Models\Vendor;
 use App\Services\CustomerService;
+use App\Traits\Messages;
+use App\Traits\SuccessMessage;
 use Cassandra\Custom;
 use Illuminate\Http\Request;
+use App\Exceptions\CustomException;
+use Illuminate\Support\Facades\DB;
+
 
 class CustomerController extends Controller
 {
+    use SuccessMessage;
+
     /**
      * Display a listing of the resource.
      */
@@ -28,32 +35,24 @@ class CustomerController extends Controller
      */
     public function create(CustomerService $customerService, CustomerStoreRequest $request)
     {
-        $customerService->createCustomer($request);
-        return redirect(route('customer'));
-    }
+        try {
+            DB::beginTransaction();
+            $customerService->createCustomer($request);
+            DB::commit();
+            $this->getSuccessMessage('Customer');
+            return redirect(route('customer'));
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('customer'));
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Brand $brands)
-    {
-        //
-    }
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Brand $brands)
-    {
-        //
+
     }
 
     /**
@@ -67,9 +66,24 @@ class CustomerController extends Controller
 
     public function update(CustomerService $customerService, CustomerUpdateRequest $request, $id)
     {
+        try {
+            DB::beginTransaction();
+            $customerService->updateCustomer($id, $request);
+            DB::commit();
+            $this->getUpdateSuccessMessage('Customer');
+            return redirect(route('customer'));
 
-        $customerService->updateCustomer($id, $request);
-        return redirect(route('customer'));
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('customer'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
+
     }
 
     public function searchCustomer(CustomerService $customerService, Request $request)
@@ -80,15 +94,25 @@ class CustomerController extends Controller
 
     public function delete(CustomerService $customerService, $id)
     {
-        $customerService->deleteCustomer($id);
-        return redirect(route('customer'));
+        try {
+            DB::beginTransaction();
+            $customerService->deleteCustomer($id);
+            DB::commit();
+            $this->getDestroySuccessMessage('Customer');
+            return redirect(route('customer'));
+
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('customer'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
+
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Brand $brands)
-    {
-        //
-    }
+
 }

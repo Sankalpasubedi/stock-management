@@ -12,6 +12,10 @@ interface CustomerRepositoryInterface
 
     public function createBillProduct($customer, $data);
 
+    public function createReturnProduct($customer, $data);
+
+    public function createReturn($customerMain, $data);
+
     public function findFirstById($id);
 
 }

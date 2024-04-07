@@ -1,5 +1,6 @@
 @extends('layouts.app')
 @section('body')
+
     <div class="row m-3">
         <div class="col-2"><a href="{{route('bill')}}"> <label class="back rounded-2">Back</label></a>
         </div>
@@ -121,13 +122,6 @@
         <div class="col-9"></div>
         <div class="col-3 text-end">
             {{$bills->links('pagination::simple-tailwind')}}
-        </div>
-    </div>
-    <div class="row m-3">
-        <div class="text-center col-6 bg-red fs-6 rounded rounded-pill">
-            @foreach($errors->all() as $error)
-                {{$error}}
-            @endforeach
         </div>
     </div>
 

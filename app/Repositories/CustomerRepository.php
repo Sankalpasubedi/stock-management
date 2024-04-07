@@ -37,8 +37,18 @@ class CustomerRepository extends BaseRepository implements CustomerRepositoryInt
         return $customer->bill()->create($data);
     }
 
+    public function createReturnProduct($customer, $data)
+    {
+        return $customer->return()->create($data);
+    }
+
     public function getAllPaginate(int $paginate)
     {
         return $this->model->paginate($paginate);
+    }
+
+    public function createReturn($customerMain, $data)
+    {
+        return $customerMain->return()->create($data);
     }
 }

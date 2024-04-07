@@ -2,14 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\CustomException;
 use App\Http\Requests\CategoryStoreRequest;
 use App\Http\Requests\CategoryUpdateRequest;
 use App\Models\Category;
 use App\Services\CategoryService;
+use App\Traits\Messages;
+use App\Traits\SuccessMessage;
+use Clockwork\Request\Log;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CategoryController extends Controller
 {
+    use SuccessMessage;
+
     /**
      * Display a listing of the resource.
      */
@@ -23,37 +30,29 @@ class CategoryController extends Controller
      */
     public function create(CategoryService $categoryService, CategoryStoreRequest $request)
     {
-        $categoryService->addCategory($request);
-        return redirect(route('category'));
-    }
+        try {
+            DB::beginTransaction();
+            $categoryService->addCategory($request);
+            DB::commit();
+            $this->getSuccessMessage('Category');
+            return redirect(route('category'));
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('category'));
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Category $categories)
-    {
-        //
-    }
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Category $categories)
-    {
-        //
     }
 
     public function updateCategory($id, CategoryService $categoryService)
     {
         $category = $categoryService->getCategoryById($id);
+
         return view('pages.Category.updateCategory', compact('category'));
     }
 
@@ -62,8 +61,23 @@ class CategoryController extends Controller
      */
     public function update(CategoryService $categoryService, CategoryUpdateRequest $request, $id)
     {
-        $categoryService->updateCategory($request, $id);
-        return redirect(route('category'));
+        try {
+            DB::beginTransaction();
+            $categoryService->updateCategory($request, $id);
+            DB::commit();
+            $this->getUpdateSuccessMessage('Category');
+            return redirect(route('category'));
+
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('category'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
     }
 
     /**
@@ -71,19 +85,28 @@ class CategoryController extends Controller
      */
     public function delete(CategoryService $categoryService, $id)
     {
-        $categoryService->delete($id);
-        return redirect(route('category'));
-    }
+        try {
+            DB::beginTransaction();
+            $categoryService->delete($id);
+            DB::commit();
+            $this->getDestroySuccessMessage('Category');
+            return redirect(route('category'));
 
-    public function destroy(Category $categories)
-    {
-        //
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('category'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
     }
 
     public function searchCategory(CategoryService $categoryService, Request $request)
     {
         $categories = $categoryService->searchContent($request);
-
         return view('pages.categories', compact('categories'));
 
     }

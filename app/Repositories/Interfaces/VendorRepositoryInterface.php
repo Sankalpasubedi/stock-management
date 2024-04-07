@@ -16,6 +16,8 @@ interface VendorRepositoryInterface
 
     public function createBillProduct($vendor, $data);
 
+    public function createReturnProduct($vendor, $data);
+
     public function findFirstById($id);
 
 }

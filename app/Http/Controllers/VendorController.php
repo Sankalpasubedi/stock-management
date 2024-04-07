@@ -9,10 +9,16 @@ use App\Http\Requests\VendorUpdateRequest;
 use App\Models\Brand;
 use App\Models\Vendor;
 use App\Services\VendorService;
+use App\Traits\Messages;
+use App\Traits\SuccessMessage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Exceptions\CustomException;
 
 class VendorController extends Controller
 {
+    use SuccessMessage;
+
     /**
      * Display a listing of the resource.
      */
@@ -26,33 +32,26 @@ class VendorController extends Controller
      */
     public function create(VendorService $vendorService, VendorStoreRequest $request)
     {
-        $vendorService->createVendor($request);
-        return redirect(route('vendor'));
+        try {
+            DB::beginTransaction();
+            $vendorService->createVendor($request);
+            DB::commit();
+            $this->getSuccessMessage('Vendor');
+            return redirect(route('vendor'));
+
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('vendor'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
+
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-    {
-        //
-    }
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Brand $brands)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Brand $brands)
-    {
-        //
-    }
 
     /**
      * Update the specified resource in storage.
@@ -65,28 +64,52 @@ class VendorController extends Controller
 
     public function update(VendorService $vendorService, VendorUpdateRequest $request, $id)
     {
-        $vendorService->updateVendor($request, $id);
-        return redirect(route('vendor'));
+        try {
+            DB::beginTransaction();
+            $vendorService->updateVendor($request, $id);
+            DB::commit();
+            $this->getUpdateSuccessMessage('Vendor');
+            return redirect(route('vendor'));
+
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('vendor'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
+
     }
 
     public function searchVendor(VendorService $vendorService, Request $request)
     {
         $vendors = $vendorService->searchContent($request);
-
         return view('pages.vendors', compact('vendors'));
     }
 
     public function delete(VendorService $vendorService, $id)
     {
-        $vendorService->delete($id);
-        return redirect(route('vendor'));
+        try {
+            DB::beginTransaction();
+            $vendorService->delete($id);
+            DB::commit();
+            $this->getDestroySuccessMessage('Vendor');
+            return redirect(route('vendor'));
+
+        } catch (CustomException $e) {
+            DB::rollBack();
+            $this->getErrorMessage($e->getMessage());
+            return redirect(route('vendor'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect(route('error'));
+        }
+
+
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Brand $brands)
-    {
-        //
-    }
 }
